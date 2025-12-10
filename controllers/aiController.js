@@ -2,26 +2,26 @@ const { getGeminiResponse } = require('../utils/gemini');
 
 // 1. Rekomendasi Umum (Chatbot/Form)
 exports.getRecommendation = async (req, res) => {
-    const { query, language = 'id' } = req.body;
-    const prompt = `Bertindaklah sebagai pemandu wisata ahli dari PT KAI (Kereta Api Indonesia). 
+  const { query, language = 'id' } = req.body;
+  const prompt = `Bertindaklah sebagai pemandu wisata ahli dari PT KAI (Kereta Api Indonesia). 
   User bertanya: "${query}". 
   Jawablah dengan ramah, informatif, dan fokus pada pariwisata Indonesia. 
   Gunakan bahasa: ${language}.`;
 
-    try {
-        const response = await getGeminiResponse(prompt);
-        res.json({ result: response });
-    } catch (error) {
-        res.status(500).json({ error: 'Gagal mendapatkan rekomendasi' });
-    }
+  try {
+    const response = await getGeminiResponse(prompt);
+    res.json({ result: response });
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal mendapatkan rekomendasi' });
+  }
 };
 
 // 2. AI Trip Planner (Output WAJIB JSON Array)
 exports.tripPlanner = async (req, res) => {
-    const { destination, days, budget, start_station } = req.body;
+  const { destination, days, budget, start_station } = req.body;
 
-    // Prompt Engineering yang ketat agar outputnya JSON bersih
-    const prompt = `Buatkan rencana perjalanan wisata ke ${destination} selama ${days} hari dengan budget ${budget}. 
+  // Prompt Engineering yang ketat agar outputnya JSON bersih
+  const prompt = `Buatkan rencana perjalanan wisata ke ${destination} selama ${days} hari dengan budget ${budget}. 
   Start dari stasiun: ${start_station}.
   
   PENTING: Output HANYA boleh berupa JSON Array murni tanpa teks pembuka/penutup markdown.
@@ -42,24 +42,28 @@ exports.tripPlanner = async (req, res) => {
     }
   ]`;
 
-    try {
-        let response = await getGeminiResponse(prompt);
-        // Bersihkan markdown formatting jika AI memberikan ```json ... ```
-        response = response.replace(/```json/g, '').replace(/```/g, '').trim();
+  try {
+    let response = await getGeminiResponse(prompt);
+    // Bersihkan markdown formatting jika AI memberikan ```json ... ```
+    response = response.replace(/```json/g, '').replace(/```/g, '').trim();
 
-        const jsonResponse = JSON.parse(response); // Validasi parsing JSON
-        res.json({ plan: jsonResponse });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Gagal membuat trip plan. Coba lagi.' });
-    }
+    const jsonResponse = JSON.parse(response); // Validasi parsing JSON
+    res.json({ plan: jsonResponse });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Gagal membuat trip plan. Coba lagi.' });
+  }
 };
 
 // 3. Analisis Review Pariwisata
 exports.analyzeReviews = async (req, res) => {
-    const { reviews } = req.body; // Array of strings (review user)
+  const { reviews } = req.body; // Array of strings (review user)
 
-    const prompt = `Berikut adalah beberapa review dari pengunjung tentang tempat wisata ini:
+  if (!reviews || !Array.isArray(reviews) || reviews.length === 0) {
+    return res.status(400).json({ error: "Data review tidak valid atau kosong" });
+  }
+
+  const prompt = `Berikut adalah beberapa review dari pengunjung tentang tempat wisata ini:
   "${reviews.join(' | ')}"
   
   Tolong berikan analisis singkat dalam format JSON:
@@ -70,29 +74,29 @@ exports.analyzeReviews = async (req, res) => {
     "summary": "Kesimpulan satu paragraf tentang tempat ini berdasarkan review."
   }`;
 
-    try {
-        let response = await getGeminiResponse(prompt);
-        response = response.replace(/```json/g, '').replace(/```/g, '').trim();
-        res.json(JSON.parse(response));
-    } catch (error) {
-        res.status(500).json({ error: 'Gagal menganalisis review' });
-    }
+  try {
+    let response = await getGeminiResponse(prompt);
+    response = response.replace(/```json/g, '').replace(/```/g, '').trim();
+    res.json(JSON.parse(response));
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal menganalisis review' });
+  }
 };
 
 // 4. Penjelasan Blog (Tanya AI tentang Blog ini)
 exports.explainBlog = async (req, res) => {
-    const { blogContent, question } = req.body;
+  const { blogContent, question } = req.body;
 
-    const prompt = `Berdasarkan artikel blog berikut:
+  const prompt = `Berdasarkan artikel blog berikut:
   "${blogContent.substring(0, 1500)}..." (dipotong agar tidak terlalu panjang)
   
   Jawablah pertanyaan user: "${question}"
   Jawab dengan singkat dan padat.`;
 
-    try {
-        const response = await getGeminiResponse(prompt);
-        res.json({ answer: response });
-    } catch (error) {
-        res.status(500).json({ error: 'Gagal menjelaskan blog' });
-    }
+  try {
+    const response = await getGeminiResponse(prompt);
+    res.json({ answer: response });
+  } catch (error) {
+    res.status(500).json({ error: 'Gagal menjelaskan blog' });
+  }
 };
