@@ -57,29 +57,39 @@ exports.tripPlanner = async (req, res) => {
 
 // 3. Analisis Review Pariwisata
 exports.analyzeReviews = async (req, res) => {
-  const { reviews } = req.body; // Array of strings (review user)
+  // Kita tidak lagi butuh array 'reviews' dari database lokal
+  // Kita butuh Nama Tempat dan Lokasinya agar AI bisa mencari di knowledge base-nya
+  const { place_name, location } = req.body;
 
-  if (!reviews || !Array.isArray(reviews) || reviews.length === 0) {
-    return res.status(400).json({ error: "Data review tidak valid atau kosong" });
+  if (!place_name) {
+    return res.status(400).json({ error: "Nama tempat diperlukan" });
   }
 
-  const prompt = `Berikut adalah beberapa review dari pengunjung tentang tempat wisata ini:
-  "${reviews.join(' | ')}"
+  // Prompt yang diperbarui untuk memaksa AI bertindak sebagai peneliti review
+  const prompt = `
+  Bertindaklah sebagai analis data pariwisata ahli.
+  Tugas: Analisis sentimen publik terbaru, ulasan Google Maps, dan diskusi media sosial mengenai tempat wisata: "${place_name}" yang berlokasi di "${location}".
   
-  Tolong berikan analisis singkat dalam format JSON:
+  Gunakan pengetahuan luasmu tentang tempat ini untuk merangkum apa yang dikatakan orang-orang (turis lokal maupun asing).
+  
+  Output WAJIB dalam format JSON valid (tanpa markdown code block) dengan struktur berikut:
   {
-    "sentiment_summary": "Ringkasan sentimen (Positif/Netral/Negatif)",
-    "pros": ["Poin positif 1", "Poin positif 2"],
-    "cons": ["Poin negatif 1", "Poin negatif 2"],
-    "summary": "Kesimpulan satu paragraf tentang tempat ini berdasarkan review."
-  }`;
+    "sentiment_summary": "Ringkasan sentimen umum (misal: Sangat Positif/Campuran/Negatif)",
+    "pros": ["Poin positif 1 (dari ulasan publik)", "Poin positif 2"],
+    "cons": ["Poin negatif 1 (keluhan umum)", "Poin negatif 2"],
+    "summary": "Kesimpulan paragraf singkat mengenai pengalaman turis di sini berdasarkan tren ulasan daring."
+  }
+  `;
 
   try {
     let response = await getGeminiResponse(prompt);
+    // Bersihkan format markdown jika AI memberikannya (misal ```json ... ```)
     response = response.replace(/```json/g, '').replace(/```/g, '').trim();
+
     res.json(JSON.parse(response));
   } catch (error) {
-    res.status(500).json({ error: 'Gagal menganalisis review' });
+    console.error("AI Error:", error);
+    res.status(500).json({ error: 'Gagal menganalisis review dari sumber publik.' });
   }
 };
 
