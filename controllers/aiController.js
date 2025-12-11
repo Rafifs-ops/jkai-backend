@@ -20,38 +20,51 @@ exports.getRecommendation = async (req, res) => {
 exports.tripPlanner = async (req, res) => {
   const { destination, days, budget, start_station } = req.body;
 
-  // Prompt Engineering yang ketat agar outputnya JSON bersih
   const prompt = `Buatkan rencana perjalanan wisata ke ${destination} selama ${days} hari dengan budget ${budget}. 
   Start dari stasiun: ${start_station}.
   
-  PENTING: Output HANYA boleh berupa JSON Array murni tanpa teks pembuka/penutup markdown.
-  Format JSON harus seperti ini:
+  FITUR BARU YANG WAJIB ADA:
+  1. Integrasi Transportasi: Jika destinasi butuh sambungan, sarankan "Kereta + Bus DAMRI" atau "Kereta + Kapal". Sebutkan estimasi harga tiket terusan (All-in-one).
+  2. Kuliner & Landmark: Jangan hanya wisata alam. Masukkan rekomendasi kuliner (Wajib ada link sosmed dummy & estimasi harga) dan Landmark ikonik kota tersebut.
+
+  PENTING: Output HANYA boleh berupa JSON Array murni tanpa markdown.
+  Format JSON harus persis seperti ini:
   [
     {
       "day": 1,
       "date": "Hari 1",
+      "transport_detail": {
+         "route": "Gambir -> Bandung -> Lembang",
+         "mode": "Kereta Argo Parahyangan + DAMRI Bus (Tiket Terusan)",
+         "cost": "Rp 200.000"
+      },
       "activities": [
         {
           "time": "08:00",
-          "place_name": "Nama Tempat",
-          "description": "Deskripsi singkat aktivitas",
+          "place_name": "Gedung Sate",
+          "category": "Landmark",
+          "description": "Ikon bersejarah Jawa Barat.",
+          "estimated_cost": "Gratis"
+        },
+        {
+          "time": "12:00",
+          "place_name": "Warung Nasi Ibu Imas",
+          "category": "Kuliner",
+          "description": "Khas Sunda dengan sambal dadak pedas.",
+          "social_link": "instagram.com/warungibuimas",
           "estimated_cost": "Rp 50.000"
         }
-      ],
-      "transport_recommendation": "Nama Kereta & Perkiraan Harga Tiket"
+      ]
     }
   ]`;
 
   try {
     let response = await getGeminiResponse(prompt);
-    // Bersihkan markdown formatting jika AI memberikan ```json ... ```
     response = response.replace(/```json/g, '').replace(/```/g, '').trim();
-
-    const jsonResponse = JSON.parse(response); // Validasi parsing JSON
-    res.json({ plan: jsonResponse });
+    res.json({ plan: JSON.parse(response) });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Gagal membuat trip plan. Coba lagi.' });
+    res.status(500).json({ error: 'Gagal membuat trip plan.' });
   }
 };
 
