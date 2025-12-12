@@ -30,7 +30,7 @@ exports.tripPlanner = async (req, res) => {
      - Field "estimated_cost": Wajib ada estimasi harga per porsi (misal: "Rp 25.000/porsi").
   3. **Landmark:** Sertakan tempat wisata ikonik.
 
-  OUTPUT HARUS JSON ARRAY MURNI (Tanpa Markdown ````json) Format:
+  OUTPUT HARUS JSON ARRAY MURNI (Tanpa Markdown) Format:
       [
         {
           "day": 1,
