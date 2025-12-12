@@ -23,48 +23,54 @@ exports.tripPlanner = async (req, res) => {
   const prompt = `Buatkan rencana perjalanan wisata ke ${destination} selama ${days} hari dengan budget ${budget}. 
   Start dari stasiun: ${start_station}.
   
-  FITUR BARU YANG WAJIB ADA:
-  1. Integrasi Transportasi: Jika destinasi butuh sambungan, sarankan "Kereta + Bus DAMRI" atau "Kereta + Kapal". Sebutkan estimasi harga tiket terusan (All-in-one).
-  2. Kuliner & Landmark: Jangan hanya wisata alam. Masukkan rekomendasi kuliner (Wajib ada link sosmed dummy & estimasi harga) dan Landmark ikonik kota tersebut.
+  INSTRUKSI KHUSUS (WAJIB DIPATUHI):
+  1. **Transportasi:** Tampilkan rute lengkap. Wajib sertakan "cost" (estimasi harga tiket kereta/bus per orang dalam Rupiah).
+  2. **Kuliner:** Wajib sertakan rekomendasi tempat makan. 
+     - Field "social_link": Berikan link Google Maps atau Instagram yang valid. Jika benar-benar tidak ada, isi dengan string kosong "" (jangan null).
+     - Field "estimated_cost": Wajib ada estimasi harga per porsi (misal: "Rp 25.000/porsi").
+  3. **Landmark:** Sertakan tempat wisata ikonik.
 
-  PENTING: Output HANYA boleh berupa JSON Array murni tanpa markdown.
-  Format JSON harus persis seperti ini:
-  [
-    {
-      "day": 1,
-      "date": "Hari 1",
-      "transport_detail": {
-         "route": "Gambir -> Bandung -> Lembang",
-         "mode": "Kereta Argo Parahyangan + DAMRI Bus (Tiket Terusan)",
-         "cost": "Rp 200.000"
-      },
-      "activities": [
+  OUTPUT HARUS JSON ARRAY MURNI (Tanpa Markdown ````json) Format:
+      [
         {
-          "time": "08:00",
-          "place_name": "Gedung Sate",
-          "category": "Landmark",
-          "description": "Ikon bersejarah Jawa Barat.",
-          "estimated_cost": "Gratis"
-        },
-        {
-          "time": "12:00",
-          "place_name": "Warung Nasi Ibu Imas",
-          "category": "Kuliner",
-          "description": "Khas Sunda dengan sambal dadak pedas.",
-          "social_link": "instagram.com/warungibuimas",
-          "estimated_cost": "Rp 50.000"
+          "day": 1,
+          "date": "Hari 1",
+          "transport_detail": {
+            "route": "Gambir -> Bandung",
+            "mode": "Kereta Argo Parahyangan",
+            "cost": "Rp 150.000"
+          },
+          "activities": [
+            {
+              "time": "12:00",
+              "place_name": "Sate Maranggi Cibungur",
+              "category": "Kuliner",
+              "description": "Sate sapi empuk yang legendaris.",
+              "social_link": "[https://maps.google.com/?q=Sate+Maranggi+Cibungur](https://maps.google.com/?q=Sate+Maranggi+Cibungur)",
+              "estimated_cost": "Rp 50.000/org"
+            }
+          ]
         }
-      ]
-    }
-  ]`;
+      ]`;
 
   try {
     let response = await getGeminiResponse(prompt);
+    // Bersihkan markdown formatting jika AI masih membandel memberikannya
     response = response.replace(/```json/g, '').replace(/```/g, '').trim();
-    res.json({ plan: JSON.parse(response) });
+
+    // Validasi JSON parse untuk mencegah error di frontend
+    let jsonResponse;
+    try {
+      jsonResponse = JSON.parse(response);
+    } catch (e) {
+      console.error("AI Response Error:", response);
+      throw new Error("Format AI tidak valid, silakan coba lagi.");
+    }
+
+    res.json({ plan: jsonResponse });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Gagal membuat trip plan.' });
+    res.status(500).json({ error: 'Gagal membuat trip plan. Coba lagi.' });
   }
 };
 
