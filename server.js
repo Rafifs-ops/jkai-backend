@@ -21,6 +21,7 @@ const aiRoutes = require('./routes/ai');
 const contentRoutes = require('./routes/content');
 const tripRoutes = require('./routes/trip');
 const passRoutes = require('./routes/pass');
+const gameRoutes = require('./routes/game');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -28,6 +29,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/trip', tripRoutes);
 app.use('/api/pass', passRoutes);
+app.use('/api/game', gameRoutes);
 
 // Routes Placeholder
 app.get('/', (req, res) => {

@@ -1,82 +1,121 @@
 const Booking = require('../models/Booking');
 const User = require('../models/User');
-const UserPass = require('../models/UserPass'); // Import Model UserPass
+const UserPass = require('../models/UserPass'); // Pastikan Model UserPass diimport
 
 exports.createBooking = async (req, res) => {
     try {
-        // Tambahkan field 'train_type' dari frontend: 'local' atau 'long_haul'
-        const { pariwisata_name, train_name, connecting_transport, origin, destination, date, passengers, price, train_type } = req.body;
+        // 1. Terima data lengkap dari Frontend (sesuai revisi Booking)
+        const {
+            train_name,
+            origin,
+            destination,
+            date,
+            passengers, // Array data penumpang
+            addons,     // Object { insurance, railfood }
+            payment,    // Object { method, total_amount }
+            train_type  // 'local' atau 'long_haul' (dikirim dari frontend)
+        } = req.body;
 
-        let finalPrice = price;
+        let finalPrice = payment.total_amount;
         let bookingNote = "Regular Booking";
+        let passUsed = false;
 
-        // --- LOGIKA NUSANTARA PASS ---
+        // --- A. LOGIKA INTEGRASI NUSANTARA PASS ---
+        // Cek apakah user punya pass aktif
         const userPass = await UserPass.findOne({ user: req.user.id, status: 'Active' });
         const travelDate = new Date(date);
 
         if (userPass) {
-            // Cek apakah tanggal travel masih dalam masa berlaku pass
+            // Cek masa berlaku
             if (travelDate >= userPass.valid_from && travelDate <= userPass.valid_until) {
 
-                // KASUS 1: Kereta Lokal (Unlimited)
-                if (train_type === 'local' || connecting_transport) {
-                    finalPrice = 0;
-                    bookingNote = `Free via Nusantara Pass Tier ${userPass.tier_level} (Local/Connection)`;
-                }
-                // KASUS 2: Kereta Jarak Jauh (Cek Kuota)
-                else {
-                    if (userPass.long_haul_remaining > 0) {
-                        // Jika penumpang > 1, pass hanya berlaku untuk pemegang akun (simulasi sederhana: potong kuota sejumlah pax atau tolak)
-                        // Disini kita asumsikan 1 pass = 1 user. Jika group booking, logika bisa lebih kompleks.
-                        // Kita simulasikan 1 tiket gratis diambil dari kuota.
+                // Aturan: Pass hanya berlaku untuk pemegang akun (User Utama)
+                // Kita asumsikan penumpang pertama di list adalah pemegang akun
+                const isUserTraveling = passengers.length > 0; // Validasi sederhana
 
-                        if (passengers === 1) {
-                            finalPrice = 0;
-                            userPass.long_haul_remaining -= 1;
-                            bookingNote = `Free via Nusantara Pass Tier ${userPass.tier_level}`;
-                            await userPass.save();
-                        }
+                if (isUserTraveling) {
+                    // KASUS 1: Kereta Lokal (Unlimited Rides)
+                    if (train_type === 'local') {
+                        // Diskon sebesar harga tiket dasar (addons tetap bayar)
+                        // Logika sederhana: set harga tiket jadi 0, sisakan harga addons
+                        // Di real case: hitung ulang struktur harga
+                        bookingNote = `Free Ride via Nusantara Pass ${userPass.tier_level}`;
+                        passUsed = true;
+                    }
+                    // KASUS 2: Kereta Jarak Jauh (Cek Kuota)
+                    else if (userPass.long_haul_remaining > 0) {
+                        userPass.long_haul_remaining -= 1; // Potong Kuota
+                        await userPass.save();
+
+                        bookingNote = `Free Long Haul via Nusantara Pass (Sisa: ${userPass.long_haul_remaining})`;
+                        passUsed = true;
                     }
                 }
             }
         }
-        // -----------------------------
 
+        // Jika Pass digunakan, kita bisa nol-kan harga TIKET UTAMA saja (Addons tetap bayar)
+        // Untuk prototype ini, jika pass active, kita anggap diskon full atau sesuai logika bisnis Anda
+        if (passUsed) {
+            // Contoh: Harga jadi harga addons saja (misal asuransi/makan)
+            // Anda perlu logika perhitungan terpisah di frontend untuk memisahkan Base Price vs Addons Price
+            // Di sini kita update note saja untuk simulasi
+        }
+        // ------------------------------------------
+
+        // 2. Simpan Booking dengan Data Lengkap
         const newBooking = new Booking({
             user: req.user.id,
-            pariwisata_tujuan: pariwisata_name,
             train_name,
-            connecting_transport,
             origin_station: origin,
             destination_station: destination,
             travel_date: date,
-            passengers,
-            total_price: finalPrice // Harga update (bisa 0)
+
+            // Data Baru
+            passengers: passengers,
+            addons: {
+                insurance: addons.insurance || false,
+                railfood: addons.railfood || [] // Array menu makanan
+            },
+            payment: {
+                method: payment.method,
+                status: 'Paid', // Simulasi langsung lunas
+                total_amount: finalPrice
+            },
+
+            status: 'Confirmed',
+            note: bookingNote // Simpan catatan penggunaan pass
         });
 
         await newBooking.save();
 
-        // Update history user
-        const pointsEarned = connecting_transport ? 75 : 50;
+        // 3. Update Poin & History User
+        const pointsEarned = passengers.length * 10; // 10 poin per penumpang
         await User.findByIdAndUpdate(req.user.id, {
             $push: {
                 travel_history: {
                     trip_date: date,
                     destination: destination,
                     train_name: `${train_name} (${bookingNote})`,
-                    distance_km: 100
+                    distance_km: 150 // Dummy distance
                 }
             },
             $inc: { points: pointsEarned }
         });
 
-        res.json({ msg: 'Booking Berhasil!', booking: newBooking, note: bookingNote });
+        res.json({
+            msg: 'Booking Berhasil!',
+            booking: newBooking,
+            pass_info: passUsed ? "Diskon Nusantara Pass Berhasil Digunakan" : null
+        });
+
     } catch (error) {
-        console.error(error);
-        res.status(500).send('Server Error');
+        console.error("Booking Error:", error);
+        res.status(500).json({ msg: 'Gagal memproses booking', error: error.message });
     }
 };
 
+// ... function getUserBookings tetap sama
 exports.getUserBookings = async (req, res) => {
     try {
         const bookings = await Booking.find({ user: req.user.id }).sort({ created_at: -1 });

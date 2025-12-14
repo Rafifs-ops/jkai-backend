@@ -1,18 +1,33 @@
 const { getGeminiResponse } = require('../utils/gemini');
+const Pariwisata = require('../models/Pariwisata');
 
 // 1. Rekomendasi Umum (Chatbot/Form)
 exports.getRecommendation = async (req, res) => {
-  const { query, language = 'id' } = req.body;
-  const prompt = `Bertindaklah sebagai pemandu wisata ahli dari PT KAI (Kereta Api Indonesia). 
-  User bertanya: "${query}". 
-  Jawablah dengan ramah, informatif, dan fokus pada pariwisata Indonesia. 
-  Gunakan bahasa: ${language}.`;
+  const { query } = req.body;
+
+  // 1. Ambil konteks dari database pariwisata kita
+  const availableData = await Pariwisata.find({}, 'name location details.summary');
+  const contextString = JSON.stringify(availableData);
+
+  // 2. Prompt yang disempurnakan
+  const prompt = `
+  Kamu adalah asisten virtual PT KAI.
+  Data Pariwisata yang tersedia di database kami: ${contextString}.
+  
+  User bertanya: "${query}".
+  
+  Instruksi:
+  1. Jawab berdasarkan DATA DATABASE di atas jika relevan. Jika tidak ada di data, berikan rekomendasi umum pariwisata Indonesia.
+  2. Format jawaban dalam HTML sederhana (gunakan tag <b>, <br>, <ul>, <li>). JANGAN gunakan Markdown (backticks).
+  3. Buat tampilan rapi, per poin, dan informatif.
+  4. Akhiri dengan kalimat ajakan "Yuk pesan tiket keretanya di J-KAI!".
+  `;
 
   try {
     const response = await getGeminiResponse(prompt);
     res.json({ result: response });
   } catch (error) {
-    res.status(500).json({ error: 'Gagal mendapatkan rekomendasi' });
+    res.status(500).json({ error: 'AI Error' });
   }
 };
 

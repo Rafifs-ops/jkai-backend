@@ -2,18 +2,33 @@ const mongoose = require('mongoose');
 
 const BookingSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    pariwisata_tujuan: { type: String, required: true }, // Nama tempat wisata
     train_name: { type: String, required: true },
-    connecting_transport: {
-        type: String,
-        default: null,
-        enum: [null, 'DAMRI Bus', 'Ferry Boat', 'Local Shuttle']
-    },
     origin_station: String,
     destination_station: String,
     travel_date: Date,
-    passengers: Number,
-    total_price: Number,
+
+    // DETAIL BARU
+    passengers: [{
+        name: String,
+        id_card: String, // NIK/Paspor
+        type: { type: String, enum: ['Adult', 'Child', 'Infant'] },
+        seat_number: String // Misal "Eksekutif 1 / 12A"
+    }],
+    addons: {
+        insurance: { type: Boolean, default: false },
+        insurance_provider: String,
+        railfood: [{
+            item: String,
+            qty: Number,
+            price: Number
+        }]
+    },
+    payment: {
+        method: String, // QRIS, Transfer, dll
+        status: { type: String, default: 'Paid' }, // Simulasi langsung bayar
+        total_amount: Number
+    },
+
     status: { type: String, default: 'Confirmed' },
     created_at: { type: Date, default: Date.now }
 });
