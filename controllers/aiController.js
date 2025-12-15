@@ -33,17 +33,20 @@ exports.getRecommendation = async (req, res) => {
 
 // 2. AI Trip Planner (Output WAJIB JSON Array)
 exports.tripPlanner = async (req, res) => {
-  const { destination, days, budget, start_station } = req.body;
+  // Terima input baru dari frontend
+  const { destination, days, budget, start_station, people, notes } = req.body;
 
-  const prompt = `Buatkan rencana perjalanan wisata ke ${destination} selama ${days} hari dengan budget ${budget}. 
+  // Modifikasi Prompt
+  const prompt = `Buatkan rencana perjalanan wisata ke ${destination} selama ${days} hari untuk ${people || 1} orang.
+  Budget total: ${budget}. 
   Start dari stasiun: ${start_station}.
+  Catatan Khusus dari user: "${notes || '-'}" (Harap perhatikan catatan ini dalam pemilihan tempat/makanan).
   
   INSTRUKSI KHUSUS (WAJIB DIPATUHI):
-  1. **Transportasi:** Tampilkan rute lengkap. Wajib sertakan "cost" (estimasi harga tiket kereta/bus per orang dalam Rupiah).
+  1. **Transportasi:** Tampilkan rute lengkap. Wajib sertakan "cost" (estimasi harga tiket kereta/bus TOTAL untuk ${people || 1} orang dalam Rupiah).
   2. **Kuliner:** Wajib sertakan rekomendasi tempat makan. 
-     - Field "social_link": Berikan link Google Maps atau Instagram yang valid. Jika benar-benar tidak ada, isi dengan string kosong "" (jangan null).
-     - Field "estimated_cost": Wajib ada estimasi harga per porsi (misal: "Rp 25.000/porsi").
-  3. **Landmark:** Sertakan tempat wisata ikonik.
+     - Field "estimated_cost": Wajib ada estimasi harga total untuk ${people || 1} orang.
+  3. **Landmark:** Sertakan tempat wisata ikonik. Sesuaikan dengan catatan user.
 
   OUTPUT HARUS JSON ARRAY MURNI (Tanpa Markdown) Format:
       [
@@ -53,16 +56,15 @@ exports.tripPlanner = async (req, res) => {
           "transport_detail": {
             "route": "Gambir -> Bandung",
             "mode": "Kereta Argo Parahyangan",
-            "cost": "Rp 150.000"
+            "cost": "Rp 300.000 (Total)"
           },
           "activities": [
             {
               "time": "12:00",
-              "place_name": "Sate Maranggi Cibungur",
+              "place_name": "Sate Maranggi",
               "category": "Kuliner",
-              "description": "Sate sapi empuk yang legendaris.",
-              "social_link": "[https://maps.google.com/?q=Sate+Maranggi+Cibungur](https://maps.google.com/?q=Sate+Maranggi+Cibungur)",
-              "estimated_cost": "Rp 50.000/org"
+              "description": "Sate sapi empuk.",
+              "estimated_cost": "Rp 100.000 (Total)"
             }
           ]
         }
@@ -70,10 +72,9 @@ exports.tripPlanner = async (req, res) => {
 
   try {
     let response = await getGeminiResponse(prompt);
-    // Bersihkan markdown formatting jika AI masih membandel memberikannya
+    // ... logic parsing JSON sama seperti sebelumnya ...
     response = response.replace(/```json/g, '').replace(/```/g, '').trim();
 
-    // Validasi JSON parse untuk mencegah error di frontend
     let jsonResponse;
     try {
       jsonResponse = JSON.parse(response);

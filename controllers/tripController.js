@@ -3,12 +3,16 @@ const TripPlan = require('../models/TripPlan');
 // Simpan Rencana Baru
 exports.saveTrip = async (req, res) => {
     try {
-        const { destination, days, budget, itinerary } = req.body;
+        // Ambil input baru
+        const { destination, days, people, budget, notes, itinerary } = req.body;
+
         const newTrip = new TripPlan({
             user: req.user.id,
             destination,
             duration_days: days,
+            people: people || 1, // Default 1
             budget,
+            notes,
             itinerary
         });
         await newTrip.save();
